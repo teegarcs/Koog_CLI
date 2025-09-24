@@ -1,0 +1,25 @@
+[versions]
+kotlin = "2.1.0"
+kotlinx-serialization = "1.8.1"
+coroutines = "1.9.0"
+clikt = "5.0.3"
+koogAgents = "0.4.2"
+slf4j = "2.0.17"
+swagger = "2.1.20"
+
+[libraries]
+clikt-core = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+clikt-md = { module = "com.github.ajalt.clikt:clikt-markdown", version.ref = "clikt" }
+koog-agents = { module = "ai.koog:koog-agents", version.ref = "koogAgents" }
+slf4j-jdk14 = { module = "org.slf4j:slf4j-jdk14", version.ref = "slf4j" }
+
+# Kotlinx Serialization
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# Swagger parser
+swagger-parser = { module = "io.swagger.parser.v3:swagger-parser", version.ref = "swagger" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

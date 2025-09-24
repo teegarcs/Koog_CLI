@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+./gradlew --quiet ":agentcli:installDist" && "./agentcli/build/install/agentcli/bin/agentcli" "$@"
