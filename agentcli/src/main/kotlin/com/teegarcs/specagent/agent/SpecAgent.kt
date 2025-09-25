@@ -129,10 +129,13 @@ class SpecAgent(private val mcp: Process) {
                 system(
                     """
                     You are a helpful assistant.
-                    Fulfill the user's query and provide a response in a concise format of around 1-2 sentences.
-                    Use available tools to fulfill the user's request. If you cannot fulfill the user's request 
-                    with any of tools available, indicate to the user that  you are unable to fulfill their request.
-                    After complete, call the AgentResponseTool to return the response to the user. 
+                    Your purpose is to fulfill the user's query using the available tools. 
+                    - Review the user's query.
+                    - Review the tools available. 
+                    - Formulate a plan to fulfill the user's query using the available tools. 
+                    - If you are unable to fulfill the user's query with the available tools, respond: "I am sorry, I am unable to fulfill that request"
+                    - If you are able to fulfill the user's query, call the necessary tools. 
+                    - Provide an answer/output to the user's query in a concise format of 1-2 sentences providing your response to the AgentResponseTool. 
                     """.trimIndent()
                 )
             },
