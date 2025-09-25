@@ -7,8 +7,11 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.file
 import com.teegarcs.specagent.agent.AgentArgs
-import com.teegarcs.specagent.agent.SPECialAgent
+import com.teegarcs.specagent.agent.SpecAgent
 
+/**
+ * Main entry point into the Agentic CLI helper.
+ */
 class Main : SuspendingCliktCommand() {
     override fun help(context: Context): String {
         return "Parses Open API specs and allows user to ask the agent a prompt."
@@ -32,16 +35,16 @@ class Main : SuspendingCliktCommand() {
         )
 
         // set the bright data api key to process env.
-        processBuilder.environment()["API_TOKEN"] = "INSERT_API_KEY_HERE"
+        processBuilder.environment()["API_TOKEN"] = BRIGHT_KEY
         val mcpProcess = processBuilder.start()
         val output =
-            SPECialAgent(mcpProcess).buildAgent().run(
+            SpecAgent(mcpProcess).buildAgent().run(
                 agentInput = AgentArgs(path = path, prompt = prompt)
             )
 
         echo(output)
 
-        //kill the mcp server
+        // kill the mcp server
         mcpProcess.destroy()
     }
 }

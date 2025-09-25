@@ -12,39 +12,52 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
 import ai.koog.agents.core.tools.reflect.tool
-import ai.koog.agents.ext.tool.ExitTool
 import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.agents.mcp.McpToolRegistryProvider
 import ai.koog.agents.mcp.defaultStdioTransport
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.google.GoogleModels
 import ai.koog.prompt.executor.llms.all.simpleGoogleAIExecutor
-import io.swagger.v3.parser.OpenAPIV3Parser
+import com.teegarcs.specagent.GEMINI_KEY
+import com.teegarcs.specagent.QUIVER_KEY
+import com.teegarcs.specagent.spec.SpecCapability
+import com.teegarcs.specagent.spec.loadSpecFromFile
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.IOException
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
 
-class SPECialAgent(private val mcp: Process) {
+/**
+ * Class to build the configuration, strategy, and tools for an agent to fulfill a user request
+ * through a provided MCP process, OpenAPI specs, and a prompt from the user.
+ */
+class SpecAgent(private val mcp: Process) {
 
-    private val executor = simpleGoogleAIExecutor("INSERT_API_KEY_HERE")
+    private val executor = simpleGoogleAIExecutor(GEMINI_KEY)
 
+    /**
+     * Map of API keys to URLs. Should be updated to provide various
+     * API keys to the agent should it need it based on the user queries.
+     */
     private val keys = mapOf(
-        "https://api.quiverquant.com" to "INSERT_API_KEY_HERE"
+        "https://api.quiverquant.com" to QUIVER_KEY
     )
     private val apiCapabilities: MutableList<SpecCapability> = mutableListOf()
 
-    private val strategy = strategy<AgentArgs, String>("SPECialAgent") {
+    private val strategy = strategy<AgentArgs, String>("SpecAgent") {
         val nodeRequestLLM by nodeLLMRequestMultiple()
         val nodeExecuteToolMultiple by nodeExecuteMultipleTools(parallelTools = false)
         val nodeSendToolResultMultiple by nodeLLMSendMultipleToolResults()
 
+        /**
+         * Load OpenAPI Specs and then provide the details of those specs to the agent via a prompt update.
+         *
+         * This node takes in AgentArgs with the path and user prompt and outputs the user prompt
+         * to provide to the LLMRequestNode.
+         */
         val loadSpecNode by node<AgentArgs, String> {
             apiCapabilities.addAll(loadSpecFromFile(it.path))
 
+            // update system prompt to provide new api capabilities
             llm.writeSession {
                 updatePrompt {
                     system {
@@ -65,6 +78,7 @@ class SPECialAgent(private val mcp: Process) {
                 }
             }
 
+            // output user prompt
             it.prompt
         }
 
@@ -76,7 +90,7 @@ class SPECialAgent(private val mcp: Process) {
         )
         edge(
             nodeExecuteToolMultiple forwardTo nodeFinish
-                    onCondition { it.singleOrNull()?.tool == ExitTool.name }
+                    onCondition { it.singleOrNull()?.tool == AgentResponseTool.name }
                     transformed { it.single().result!!.toStringDefault() }
         )
 
@@ -89,11 +103,14 @@ class SPECialAgent(private val mcp: Process) {
     }
 
     private val tools = ToolRegistry {
-        tool(ExitTool)
+        // register tools for use within agent
+        tool(AgentResponseTool)
         tool(::retrieveAPIKey)
         tool(::retrieveAPISpec)
         tool(::performCurlRequest)
         tool(::getCurrentDate)
+
+        // set up MCP Server for provided MCP process
         runBlocking {
             val mcpTools = McpToolRegistryProvider.fromTransport(
                 transport = McpToolRegistryProvider.defaultStdioTransport(mcp)
@@ -103,15 +120,19 @@ class SPECialAgent(private val mcp: Process) {
 
     }
 
+    /**
+     * Builds an [AIAgent] with the provided configuration.
+     */
     fun buildAgent(): AIAgent<AgentArgs, String> {
         val config = AIAgentConfig(
-            prompt = prompt("SPECialAgent-prompt") {
+            prompt = prompt("SpecAgent-Prompt") {
                 system(
                     """
                     You are a helpful assistant.
                     Fulfill the user's query and provide a response in a concise format of around 1-2 sentences.
-                    Use available tools to fulfill the user's request. If you cannot fulfill their request with any of tools available, indicate to the user that  you are unable to fulfill their request.
-                    After complete, call the exit tool to return the response to the user. 
+                    Use available tools to fulfill the user's request. If you cannot fulfill the user's request 
+                    with any of tools available, indicate to the user that  you are unable to fulfill their request.
+                    After complete, call the AgentResponseTool to return the response to the user. 
                     """.trimIndent()
                 )
             },
@@ -124,6 +145,9 @@ class SPECialAgent(private val mcp: Process) {
             agentConfig = config,
             toolRegistry = tools
         ) {
+            /**
+             * demo of way to install an event handler and provide some extra logging for an agent.
+             */
             handleEvents {
                 onBeforeAgentStarted {
                     println("Before Agent Started")
@@ -152,40 +176,10 @@ class SPECialAgent(private val mcp: Process) {
         }
     }
 
-    fun loadSpecFromFile(specPath: File): List<SpecCapability> {
-        val parser = OpenAPIV3Parser()
-
-        val capabilities = mutableListOf<SpecCapability>()
-        val apiSpecs = specPath.listFiles().asSequence()
-            .filter { it.isFile && it.name.endsWith("json") }
-            .mapNotNull { parser.read(it.absolutePath) }
-
-        apiSpecs.forEach { api ->
-            api.paths.forEach { path, pathItem ->
-                pathItem.readOperationsMap().forEach {
-                    val method = it.key
-                    val operation = it.value
-                    val description = operation.description.orEmpty()
-                    val summary = operation.summary.orEmpty()
-
-                    capabilities.add(
-                        SpecCapability(
-                            operationId = operation.operationId,
-                            server = api.servers.firstOrNull()?.url.orEmpty(),
-                            path = path,
-                            httpMethod = method,
-                            description = "$summary $description",
-                            details = operation,
-                            securitySchemes = api.components.securitySchemes
-                        )
-                    )
-                }
-            }
-        }
-
-        return capabilities
-    }
-
+    /**
+     * A tool which allows the agent to request an API key for a specific domain should it determine
+     * it needs one based on the OpenAPI Spec.
+     */
     @Tool
     @LLMDescription("retrieve an api key for a given domain")
     fun retrieveAPIKey(
@@ -198,6 +192,10 @@ class SPECialAgent(private val mcp: Process) {
         return matchingKey?.value ?: "No API key found for domain containing $domain"
     }
 
+    /**
+     * A tool which allows the agent to request specific details on how to form an API request for
+     * a given operationId.
+     */
     @Tool(customName = "APISpec")
     @LLMDescription("Retrieve the API Spec for a given operationId. This provides the information necessary to determine how to form a curl request")
     fun retrieveAPISpec(
@@ -209,84 +207,13 @@ class SPECialAgent(private val mcp: Process) {
 
     }
 
-    @Tool(customName = "CurlRequest")
-    @LLMDescription(
-        "Executes the curl request provided. This tool assumes the provided argument is the body of the curl request. `curl --request {//to be provided by argument}`. " +
-                "Example: curl --request GET \\\n" +
-                "  --url https://api.domain.com \\\n" +
-                "  --header 'Accept: application/json' \\\n" +
-                "  --header 'Authorization: Bearer {apikey}'"
-    )
-    fun performCurlRequest(
-        @LLMDescription("body of curl request after `curl --request {//to be provided by argument}`")
-        curlRequest: String
-    ): String {
-
-        println("Performing curl request")
-
-        val curlCommand = parseCurlArguments(curlRequest)
-
-        try {
-            val processBuilder = ProcessBuilder(curlCommand)
-            val process = processBuilder.start()
-
-            // Read the output from the command (the API response)
-            val output = process.inputStream.bufferedReader().readText()
-            val error = process.errorStream.bufferedReader().readText()
-
-            // Wait for the process to complete, with a timeout
-            val finished = process.waitFor(10, TimeUnit.SECONDS)
-
-            if (!finished) {
-                process.destroy()
-                println("Command timed out!")
-                return "Request timed out"
-            }
-
-            println("\n--- Output (API Response) ---")
-            return output.ifBlank {
-                "Output is empty: ${error.ifBlank { "Error is also empty" }}"
-            }
-
-        } catch (e: IOException) {
-            return e.message ?: "Unknown error occurred"
-        }
-    }
-
+    /**
+     * Simple utility for the agent to retrieve the current date should a request be made that requires an accurate date.
+     */
     @Tool(customName = "getCurrentDate")
     @LLMDescription("Retrieve the current date in MM/dd/yyyy format")
     fun getCurrentDate(): String {
         val dateFormat = SimpleDateFormat("MM/dd/yyyy")
         return dateFormat.format(Date())
     }
-}
-
-/**
- * Utility that formats curl commands into a list of strings for use with ProcessBuilder.
- */
-fun parseCurlArguments(argsString: String): List<String> {
-    val cleanedString = argsString.replace("\\\n", " ").replace("\n", " ").trim()
-
-    val regex = Pattern.compile("[^\\s\"']+|\"([^\"]*)\"|'([^']*)'")
-    val matcher = regex.matcher(cleanedString)
-    val parts = mutableListOf<String>()
-    while (matcher.find()) {
-        val part = matcher.group(1) ?: matcher.group(2) ?: matcher.group()
-        parts.add(part)
-    }
-
-    val command = mutableListOf("curl")
-
-    if (parts.isNotEmpty()) {
-        val firstPart = parts.first().uppercase()
-        val httpMethods = setOf("GET", "POST", "PUT", "DELETE", "PATCH")
-        if (httpMethods.contains(firstPart)) {
-            command.add("--request") // Add the --request flag
-            command.addAll(parts)    // Add the rest of the parsed arguments
-        } else {
-            command.addAll(parts)
-        }
-    }
-
-    return command
 }
