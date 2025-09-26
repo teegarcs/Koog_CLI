@@ -30,7 +30,7 @@ object AgentResponseTool : SimpleTool<AgentResponseTool.Args>() {
     override val descriptor: ToolDescriptor
         get() = ToolDescriptor(
             name = "AgentResponseTool",
-            description = "Service tool, used by the agent to end conversation with the response to the user query.",
+            description = "Service tool, used by the agent/assistant to end conversation with the response to the user query.",
             requiredParameters = listOf(
                 ToolParameterDescriptor(
                     name = "message",

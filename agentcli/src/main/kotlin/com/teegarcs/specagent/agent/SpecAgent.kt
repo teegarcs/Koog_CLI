@@ -7,7 +7,9 @@ import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.extension.nodeExecuteMultipleTools
 import ai.koog.agents.core.dsl.extension.nodeLLMRequestMultiple
 import ai.koog.agents.core.dsl.extension.nodeLLMSendMultipleToolResults
+import ai.koog.agents.core.dsl.extension.onAssistantMessage
 import ai.koog.agents.core.dsl.extension.onMultipleToolCalls
+import ai.koog.agents.core.dsl.extension.onToolCall
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
@@ -98,6 +100,8 @@ class SpecAgent(private val mcp: Process) {
             (nodeSendToolResultMultiple forwardTo nodeExecuteToolMultiple)
                     onMultipleToolCalls { true }
         )
+        edge(nodeSendToolResultMultiple forwardTo nodeFinish transformed { it.first() }
+                onAssistantMessage { true })
     }
 
     private val tools = ToolRegistry {
@@ -150,28 +154,11 @@ class SpecAgent(private val mcp: Process) {
              * demo of way to install an event handler and provide some extra logging for an agent.
              */
             handleEvents {
-                onBeforeAgentStarted {
-                    println("Before Agent Started")
-                }
-                onBeforeNode {
-                    println("Before Node -- Name:${it.node.name}, Input: ${it.input}")
-                }
                 onAfterNode {
                     println("After Node -- Name:${it.node.name}, Output: ${it.output}")
                 }
-                onAfterLLMCall {
-                    println("After LLMCall -- Prompt:${it.prompt}, Responses: ${it.responses}")
-                }
-                onToolCall {
-                    println("On Tool Call -- Name:${it.tool.name}, Args: ${it.toolArgs}")
-                }
-
                 onAgentRunError {
                     println("On Agent Error -- Error:${it.throwable.message}")
-                }
-
-                onAgentFinished { ctx ->
-                    println("Agent Finished")
                 }
             }
         }
