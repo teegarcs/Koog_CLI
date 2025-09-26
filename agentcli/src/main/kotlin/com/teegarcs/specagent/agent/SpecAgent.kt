@@ -93,9 +93,7 @@ class SpecAgent(private val mcp: Process) {
                     onCondition { it.singleOrNull()?.tool == AgentResponseTool.name }
                     transformed { it.single().result!!.toStringDefault() }
         )
-
         edge(nodeExecuteToolMultiple forwardTo nodeSendToolResultMultiple)
-
         edge(
             (nodeSendToolResultMultiple forwardTo nodeExecuteToolMultiple)
                     onMultipleToolCalls { true }

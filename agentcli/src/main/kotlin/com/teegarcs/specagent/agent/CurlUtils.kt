@@ -54,7 +54,6 @@ fun performCurlRequest(
     @LLMDescription("body of curl request after `curl --request {//to be provided by argument}`")
     curlRequest: String
 ): String {
-
     val curlCommand = parseCurlArguments(curlRequest)
 
     try {
