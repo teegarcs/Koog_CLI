@@ -3,9 +3,11 @@ package com.teegarcs.specagent
 import com.github.ajalt.clikt.command.SuspendingCliktCommand
 import com.github.ajalt.clikt.command.main
 import com.github.ajalt.clikt.core.Context
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.file
+import com.github.ajalt.mordant.terminal.StringPrompt
 import com.teegarcs.specagent.agent.AgentArgs
 import com.teegarcs.specagent.agent.SpecAgent
 
@@ -38,7 +40,13 @@ class Main : SuspendingCliktCommand() {
         processBuilder.environment()["API_TOKEN"] = BRIGHT_KEY
         val mcpProcess = processBuilder.start()
         val output =
-            SpecAgent(mcpProcess).buildAgent().run(
+            SpecAgent(
+                mcp = mcpProcess,
+                promptUser = {
+                    // provide a way for the agent to request follow up information
+                    StringPrompt(it, terminal).ask().orEmpty()
+                }
+            ).buildAgent().run(
                 agentInput = AgentArgs(path = path, prompt = prompt)
             )
 

@@ -9,7 +9,6 @@ import ai.koog.agents.core.dsl.extension.nodeLLMRequestMultiple
 import ai.koog.agents.core.dsl.extension.nodeLLMSendMultipleToolResults
 import ai.koog.agents.core.dsl.extension.onAssistantMessage
 import ai.koog.agents.core.dsl.extension.onMultipleToolCalls
-import ai.koog.agents.core.dsl.extension.onToolCall
 import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.agents.core.tools.annotations.Tool
@@ -32,7 +31,10 @@ import java.util.Date
  * Class to build the configuration, strategy, and tools for an agent to fulfill a user request
  * through a provided MCP process, OpenAPI specs, and a prompt from the user.
  */
-class SpecAgent(private val mcp: Process) {
+class SpecAgent(
+    private val mcp: Process,
+    private val promptUser: suspend (String) -> String
+) {
 
     private val executor = simpleGoogleAIExecutor(GEMINI_KEY)
 
@@ -111,6 +113,7 @@ class SpecAgent(private val mcp: Process) {
         tool(::retrieveAPISpec)
         tool(::performCurlRequest)
         tool(::getCurrentDate)
+        tool(::userFollowUp)
 
         // set up MCP Server for provided MCP process
         runBlocking {
@@ -135,7 +138,9 @@ class SpecAgent(private val mcp: Process) {
                     - Review the user's query.
                     - Review the tools available. 
                     - Formulate a plan to fulfill the user's query using the available tools. 
-                    - If you are unable to fulfill the user's query with the available tools, respond: "I am sorry, I am unable to fulfill that request"
+                    - if you need some extra information from the user, request more information using the userFollowUp tool. 
+                    - DO NOT request information from the user except through the userFollowUp tool. 
+                    - If you are unable to fulfill the user's query with the available tools or through follow up questions, respond: "I am sorry, I am unable to fulfill that request"
                     - If you are able to fulfill the user's query, call the necessary tools. 
                     - Provide an answer/output to the user's query in a concise format of 1-2 sentences providing your response to the AgentResponseTool. 
                     """.trimIndent()
@@ -193,6 +198,15 @@ class SpecAgent(private val mcp: Process) {
         return apiCapabilities.find { it.operationId.equals(operationId, ignoreCase = true) }
             ?.toString() ?: "No API Spec found for operationId $operationId"
 
+    }
+
+    @Tool(customName = "userFollowUp")
+    @LLMDescription("Request the user to provide more information to fulfill the request they have made.")
+    suspend fun userFollowUp(
+        @LLMDescription("A short question to ask the user to provide more information to fulfill the request")
+        question: String
+    ): String {
+        return promptUser(question)
     }
 
     /**

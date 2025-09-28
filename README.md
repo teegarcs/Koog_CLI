@@ -53,6 +53,7 @@ In this project, the ToolsRegistry is configured with the following:
 *   **Get Current Date:** Retrieves formatted current date
 *   **Perform curl request:** Perform API request as curl
 *   **Bright Data MCP Server:** MCP Server for public internet search
+*   **Request Follow Up Info:** Requests additional information from the user.
 *   **Agent Response Tool:** Send agent response to user
 
 ## 4. Agent Strategy
@@ -70,9 +71,10 @@ graph TD
         A(Start) --> B["loadSpecNode<br/>Loads OpenAPI specs<br/>Updates system prompt"];
         B --> C{"nodeRequestLLM<br/>Sends prompt to LLM"};
         C -- "Receives Tool Calls" --> D["nodeExecuteToolMultiple<br/>Executes one or more tools"];
-        D --> Condition{"Is tool 'AgentResponseTool'?"};
-        Condition -- "Yes" --> F(Finish);
-        Condition -- "No" --> E["nodeSendToolResultMultiple<br/>Sends tool results back to LLM"];
+        D -- "Tool: AgentResponseTool" --> F(Finish);
+        D -- "Tool: RequestFollowUpInfoTool" --> M["nodeRequestFollowUp<br/>Requests follow-up from user<br/>(tool result is user input)"];
+        M --> E["nodeSendToolResultMultiple<br/>Sends tool results back to LLM"];
+        D -- "Tool: Other Tools" --> E;
         E --> C;
     end
 
@@ -84,6 +86,7 @@ graph TD
         J[performCurlRequest]
         K[getCurrentDate]
         L["...<br/>MCP Tools from Process"]
+        N[RequestFollowUpInfoTool]
     end
 
     D -.-> Tools;
