@@ -84,8 +84,8 @@ graph TD
         I["APISpec (retrieveAPISpec)"]
         J[performCurlRequest]
         K[getCurrentDate]
-        L["...<br/>MCP Tools from Process"]
-        N[RequestFollowUpInfoTool]
+        L[RequestFollowUpInfoTool]
+        M["...<br/>MCP Tools from Process"]
     end
 
     D -.-> Tools;
