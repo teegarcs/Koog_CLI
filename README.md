@@ -71,10 +71,9 @@ graph TD
         A(Start) --> B["loadSpecNode<br/>Loads OpenAPI specs<br/>Updates system prompt"];
         B --> C{"nodeRequestLLM<br/>Sends prompt to LLM"};
         C -- "Receives Tool Calls" --> D["nodeExecuteToolMultiple<br/>Executes one or more tools"];
-        D -- "Tool: AgentResponseTool" --> F(Finish);
-        D -- "Tool: RequestFollowUpInfoTool" --> M["nodeRequestFollowUp<br/>Requests follow-up from user<br/>(tool result is user input)"];
-        M --> E["nodeSendToolResultMultiple<br/>Sends tool results back to LLM"];
-        D -- "Tool: Other Tools" --> E;
+        D --> Condition{"Is tool 'AgentResponseTool'?"};
+        Condition -- "Yes" --> F(Finish);
+        Condition -- "No" --> E["nodeSendToolResultMultiple<br/>Sends tool results back to LLM"];
         E --> C;
     end
 
